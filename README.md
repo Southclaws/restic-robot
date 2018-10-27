@@ -22,4 +22,17 @@ Environment variables:
 - `PROMETHEUS_ENDPOINT`: metrics endpoint
 - `PROMETHEUS_ADDRESS`: metrics host:port
 
+Prometheus metrics:
+
+- `backups_all_total`: The total number of backups attempted, including failures.
+- `backups_successful_total`: The total number of backups that succeeded.
+- `backups_failed_total`: The total number of backups that failed.
+- `backup_duration_milliseconds`: The duration of backups in milliseconds.
+- `backup_files_new`: Amount of new files.
+- `backup_files_changed`: Amount of files with changes.
+- `backup_files_unmodified`: Amount of files unmodified since last backup.
+- `backup_files_processed`: Total number of files scanned by the backup for changes.
+- `backup_added_bytes`: Total number of bytes added to the repository.
+- `backup_processed_bytes`: Total number of bytes scanned by the backup for changes
+
 It's that simple!
