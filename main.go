@@ -21,6 +21,7 @@ type backup struct {
 	Repository         string `required:"true"    envconfig:"RESTIC_REPOSITORY"`   // repository name
 	Password           string `required:"true"    envconfig:"RESTIC_PASSWORD"`     // repository password
 	Args               string `                   envconfig:"RESTIC_ARGS"`         // additional args for backup command
+	RunOnBoot          bool   `                   envconfig:"RUN_ON_BOOT"`         // run a backup on startup
 	PrometheusEndpoint string `default:"/metrics" envconfig:"PROMETHEUS_ENDPOINT"` // metrics endpoint
 	PrometheusAddress  string `default:":8080"    envconfig:"PROMETHEUS_ADDRESS"`  // metrics host:port
 
@@ -69,6 +70,9 @@ func main() {
 	err = cr.AddJob(b.Schedule, &b)
 	if err != nil {
 		logger.Fatal("failed to schedule task", zap.Error(err))
+	}
+	if b.RunOnBoot {
+		b.Run()
 	}
 	cr.Run()
 }

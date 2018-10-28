@@ -19,6 +19,7 @@ Environment variables:
 - `RESTIC_REPOSITORY`: repository name
 - `RESTIC_PASSWORD`: repository password
 - `RESTIC_ARGS`: additional args for backup command
+- `RUN_ON_BOOT`: run a backup on startup
 - `PROMETHEUS_ENDPOINT`: metrics endpoint
 - `PROMETHEUS_ADDRESS`: metrics host:port
 
