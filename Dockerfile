@@ -4,6 +4,8 @@ WORKDIR /restic-robot
 ADD . .
 ENV GO111MODULE=on
 RUN apk add git
+RUN apk add gcc
+RUN apk add musl-dev
 RUN go mod tidy
 RUN go build
 
