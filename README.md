@@ -37,3 +37,32 @@ Prometheus metrics:
 - `backup_processed_bytes`: Total number of bytes scanned by the backup for changes
 
 It's that simple!
+
+## Docker Compose
+
+Stick this in with your other compose services for instant backups!
+
+```yml
+services:
+  #
+  # your stuff etc...
+  #
+
+  backup:
+    image: southclaws/restic-robot
+    restart: always
+    environment:
+      # every day at 2am
+      SCHEDULE: 0 0 2 * * *
+      RESTIC_REPOSITORY: my_service_repository
+      RESTIC_PASSWORD: ${MY_SERVICE_RESTIC_PASSWORD}
+      # restic-robot runs `restic backup ${RESTIC_ARGS}`
+      # so this is where you specify the directory and any other args.
+      RESTIC_ARGS: /data
+      B2_ACCOUNT_ID: ${B2_ACCOUNT_ID}
+      B2_ACCOUNT_KEY: ${B2_ACCOUNT_KEY}
+    volumes:
+      # Bind whatever directories to the backup container.
+      # You can safely bind the same directory to multiple containers.
+      - "/container_data/blog/wordpress:/data/wordpress"
+```
