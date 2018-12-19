@@ -38,6 +38,7 @@ type backup struct {
 }
 
 var (
+	matchExists     = regexp.MustCompile(`.*already (exists|initialized).*`)
 	matchFileStats  = regexp.MustCompile(`Files:\s*([0-9.]*) new,\s*([0-9.]*) changed,\s*([0-9.]*) unmodified`)
 	matchAddedBytes = regexp.MustCompile(`Added to the repo: ([0-9.]+) (\w+)`)
 	matchProcessed  = regexp.MustCompile(`processed ([0-9.]*) files, ([0-9.]+) (\w+)`)
@@ -181,7 +182,7 @@ func (b *backup) Ensure() (err error) {
 	cmd.Stderr = out
 	err = cmd.Run()
 	if err != nil {
-		if strings.HasSuffix(strings.Trim(out.String(), " \n\r"), "already exists") {
+		if matchExists.MatchString(strings.Trim(out.String(), " \n\r")) {
 			logger.Info("repository exists")
 			return nil
 		}
