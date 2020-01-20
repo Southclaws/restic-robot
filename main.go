@@ -24,6 +24,8 @@ type backup struct {
 	RunOnBoot          bool   `                   envconfig:"RUN_ON_BOOT"`         // run a backup on startup
 	PrometheusEndpoint string `default:"/metrics" envconfig:"PROMETHEUS_ENDPOINT"` // metrics endpoint
 	PrometheusAddress  string `default:":8080"    envconfig:"PROMETHEUS_ADDRESS"`  // metrics host:port
+	PreCommand         string `                   envconfig:"PRE_COMMAND"`         // command to execute before restic is executed
+	PostCommand        string `                   envconfig:"POST_COMMAND"`        // command to execute after restic was executed (successfully)
 
 	backupsTotal      prometheus.Counter
 	backupsSuccessful prometheus.Counter
@@ -83,48 +85,71 @@ func (b *backup) Run() {
 	logger.Info("backup started")
 	startTime := time.Now()
 
+	if len(b.PreCommand) > 0 {
+		if stdout, err := b.executePreCommand(); err != nil {
+			logger.Error("failed to execute pre-command: " + err.Error())
+			b.backupsFailed.Inc()
+			b.backupsTotal.Inc()
+			return
+		} else {
+			logger.Info("output of pre-command: " + *stdout)
+		}
+	}
+
 	cmd := exec.Command("restic", "backup", "-q", "-v", b.Args)
-	errors := bytes.NewBuffer(nil)
-	output := bytes.NewBuffer(nil)
-	cmd.Stderr = errors
-	cmd.Stdout = output
+	errbuf := bytes.NewBuffer(nil)
+	outbuf := bytes.NewBuffer(nil)
+	cmd.Stderr = errbuf
+	cmd.Stdout = outbuf
 
 	if err := cmd.Run(); err != nil {
 		logger.Error("failed to run backup",
 			zap.Error(err),
-			zap.String("output", errors.String()))
+			zap.String("output", errbuf.String()))
 		b.backupsFailed.Inc()
-	} else {
-		d := time.Since(startTime)
-
-		statistics, err := extractStats(output.String())
-		if err != nil {
-			logger.Warn("failed to extract statistics from command output",
-				zap.Error(err))
-		}
-
-		logger.Info("backup completed",
-			zap.Duration("duration", d),
-			zap.Int("filesNew", statistics.filesNew),
-			zap.Int("filesChanged", statistics.filesChanged),
-			zap.Int("filesUnmodified", statistics.filesUnmodified),
-			zap.Int("filesProcessed", statistics.filesProcessed),
-			zap.Int("bytesAdded", statistics.bytesAdded),
-			zap.Int("bytesProcessed", statistics.bytesProcessed),
-		)
-
-		b.backupsSuccessful.Inc()
-		b.backupDuration.Observe(float64(d.Nanoseconds() * 1000))
-		b.filesNew.Observe(float64(statistics.filesNew))
-		b.filesChanged.Observe(float64(statistics.filesChanged))
-		b.filesUnmodified.Observe(float64(statistics.filesUnmodified))
-		b.filesProcessed.Observe(float64(statistics.filesProcessed))
-		b.bytesAdded.Observe(float64(statistics.bytesAdded))
-		b.bytesProcessed.Observe(float64(statistics.bytesProcessed))
+		b.backupsTotal.Inc()
+		return
 	}
 
+	if len(b.PostCommand) > 0 {
+		if stdout, err := b.executePostCommand(); err != nil {
+			logger.Error("failed to execute post-command: " + err.Error())
+			b.backupsFailed.Inc()
+			b.backupsTotal.Inc()
+			return
+		} else {
+			logger.Info("output of post-command: " + *stdout)
+		}
+	}
+
+	d := time.Since(startTime)
+
+	statistics, err := extractStats(outbuf.String())
+	if err != nil {
+		logger.Warn("failed to extract statistics from command output",
+			zap.Error(err))
+	}
+
+	logger.Info("backup completed",
+		zap.Duration("duration", d),
+		zap.Int("filesNew", statistics.filesNew),
+		zap.Int("filesChanged", statistics.filesChanged),
+		zap.Int("filesUnmodified", statistics.filesUnmodified),
+		zap.Int("filesProcessed", statistics.filesProcessed),
+		zap.Int("bytesAdded", statistics.bytesAdded),
+		zap.Int("bytesProcessed", statistics.bytesProcessed),
+	)
+
+	b.backupDuration.Observe(float64(d.Nanoseconds() * 1000))
+	b.filesNew.Observe(float64(statistics.filesNew))
+	b.filesChanged.Observe(float64(statistics.filesChanged))
+	b.filesUnmodified.Observe(float64(statistics.filesUnmodified))
+	b.filesProcessed.Observe(float64(statistics.filesProcessed))
+	b.bytesAdded.Observe(float64(statistics.bytesAdded))
+	b.bytesProcessed.Observe(float64(statistics.bytesProcessed))
+
+	b.backupsSuccessful.Inc()
 	b.backupsTotal.Inc()
-	return
 }
 
 func extractStats(s string) (result stats, err error) {
