@@ -8,6 +8,7 @@ This is a small and simple wrapper application for [Restic](https://github.com/r
 - Scheduled backups - no need for system-wide cron
 - Prometheus metrics- know when your backups don't run!
 - JSON logs - for the robots!
+- Pre/post shell script hooks for custom behaviour! (Thanks @opthomas-prime!)
 
 ## Usage
 
@@ -22,6 +23,8 @@ Environment variables:
 - `RUN_ON_BOOT`: run a backup on startup
 - `PROMETHEUS_ENDPOINT`: metrics endpoint
 - `PROMETHEUS_ADDRESS`: metrics host:port
+- `PRE_COMMAND`: A shell command to run before a backup starts
+- `POST_COMMAND`: A shell command to run if the backup completes successfully
 
 Prometheus metrics:
 
