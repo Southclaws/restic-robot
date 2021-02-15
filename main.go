@@ -96,7 +96,7 @@ func (b *backup) Run() {
 		}
 	}
 
-	args := []string{"backup", "-q", "-v"}
+	args := []string{"backup"}
 	args = append(args, strings.Split(b.Args, " ")...)
 
 	cmd := exec.Command("restic", args...)
