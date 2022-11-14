@@ -97,8 +97,15 @@ func (b *backup) Run() {
 	}
 
 	args := []string{"backup"}
-	args = append(args, strings.Split(b.Args, " ")...)
 
+	//Split arguments at \" to allow multiple paths with spaces in the argument list (e.g. set RESTIC_ARGS="C:\Tasks 1" "C:\Tasks 2")
+	splitArgs := strings.Split(b.Args, "\"")
+	for _, element := range splitArgs {
+		if element != "" && element != " " {
+			args = append(args, element)
+		}
+	}
+	
 	cmd := exec.Command("restic", args...)
 	errbuf := bytes.NewBuffer(nil)
 	outbuf := bytes.NewBuffer(nil)
