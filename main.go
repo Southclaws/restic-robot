@@ -98,7 +98,7 @@ func (b *backup) Run() {
 
 	args := []string{"backup"}
 
-	//Split arguments at \" to allow multiple paths with spaces in the argument list (e.g. set RESTIC_ARGS="C:\Tasks 1" "C:\Tasks 2")
+	// Split arguments at \" to allow multiple paths with spaces in the argument list
 	splitArgs := strings.Split(b.Args, "\"")
 	for _, element := range splitArgs {
 		if element != "" && element != " " {
