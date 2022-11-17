@@ -97,7 +97,19 @@ func (b *backup) Run() {
 	}
 
 	args := []string{"backup"}
-	args = append(args, strings.Split(b.Args, " ")...)
+
+	if (strings.Contains(b.Args, "\"")) {
+		// Split arguments at " to allow multiple paths with spaces in the argument list
+		splitArgs := strings.Split(b.Args, "\"")
+		for _, element := range splitArgs {
+			if element != "" && element != " " {
+				args = append(args, element)
+			}
+		}
+	} else {
+		// Split arguments at space character if no " is used
+		args = append(args, strings.Split(b.Args, " ")...)
+	}
 
 	cmd := exec.Command("restic", args...)
 	errbuf := bytes.NewBuffer(nil)
