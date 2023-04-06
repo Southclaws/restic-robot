@@ -42,7 +42,7 @@ type backup struct {
 var (
 	matchExists     = regexp.MustCompile(`.*already (exists|initialized).*`)
 	matchFileStats  = regexp.MustCompile(`Files:\s*([0-9.]*) new,\s*([0-9.]*) changed,\s*([0-9.]*) unmodified`)
-	matchAddedBytes = regexp.MustCompile(`Added to the repo: ([0-9.]+) (\w+)`)
+	matchAddedBytes = regexp.MustCompile(`Added to the (repo|repository): ([0-9.]+) (\w+)`)
 	matchProcessed  = regexp.MustCompile(`processed ([0-9.]*) files, ([0-9.]+) (\w+)`)
 )
 
@@ -98,7 +98,7 @@ func (b *backup) Run() {
 
 	args := []string{"backup"}
 
-	if (strings.Contains(b.Args, "\"")) {
+	if strings.Contains(b.Args, "\"") {
 		// Split arguments at " to allow multiple paths with spaces in the argument list
 		splitArgs := strings.Split(b.Args, "\"")
 		for _, element := range splitArgs {
@@ -178,7 +178,7 @@ func extractStats(s string) (result stats, err error) {
 	result.filesUnmodified, _ = strconv.Atoi(fileStats[0][3]) //nolint:errcheck
 
 	addedBytes := matchAddedBytes.FindAllStringSubmatch(s, -1)
-	if len(addedBytes[0]) != 3 {
+	if len(addedBytes[0]) != 3 && len(addedBytes[0]) != 4 {
 		err = errors.Errorf("matchAddedBytes expected 3, got %d", len(addedBytes[0]))
 		return
 	}
