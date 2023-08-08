@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"runtime/debug"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -16,6 +18,23 @@ const (
 	// backupStatusRunning indicates the backup is currently in progress
 	backupStatusRunning = 1
 )
+
+// metrics is used to hold all the Prometheus metrics used
+type metrics struct {
+	backupDuration             prometheus.Histogram
+	backupInfo                 prometheus.Gauge
+	backupStatus               prometheus.Gauge
+	backupsFailed              prometheus.Counter
+	backupsSuccessful          prometheus.Counter
+	backupsSuccessfulTimestamp prometheus.Gauge
+	backupsTotal               prometheus.Counter
+	bytesAdded                 prometheus.Histogram
+	bytesProcessed             prometheus.Histogram
+	filesChanged               prometheus.Histogram
+	filesNew                   prometheus.Histogram
+	filesProcessed             prometheus.Histogram
+	filesUnmodified            prometheus.Histogram
+}
 
 // initializeMetrics configures and registers the Prometheus metrics
 func (b *backup) initializeMetrics() {
@@ -79,8 +98,16 @@ func (b *backup) initializeMetrics() {
 		Name:      "backup_status",
 		Help:      "Backup status (1 = backing up, 0 = idle, -1 = idle after failed backup)",
 	})
+	b.backupInfo = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace:   "backup",
+		Name:        "backup_info",
+		Help:        "Information about the backup process",
+		ConstLabels: prometheus.Labels(getVersionInfo()),
+	})
+	b.backupInfo.Set(1)
 	prometheus.MustRegister(
 		b.backupDuration,
+		b.backupInfo,
 		b.backupStatus,
 		b.backupsFailed,
 		b.backupsSuccessful,
@@ -93,6 +120,39 @@ func (b *backup) initializeMetrics() {
 		b.filesProcessed,
 		b.filesUnmodified,
 	)
+}
+
+// getBuildInfo returns a value from Go's build-in debug information
+func getBuildInfo(key string) string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == key {
+				return setting.Value
+			}
+		}
+	}
+	// not found
+	return ""
+}
+
+// getVersionInfo returns a list of key value pairs to become part of the info metric
+func getVersionInfo() map[string]string {
+	res := make(map[string]string)
+
+	// add the hostname
+	host, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
+	res["hostname"] = host
+
+	// add the short git hash of the binary's latest commit
+	revision := getBuildInfo("vcs.revision")
+	if revision != "" {
+		res["commit"] = revision[:7]
+	}
+
+	return res
 }
 
 func (b *backup) startMetricsServer() {

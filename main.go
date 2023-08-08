@@ -12,7 +12,6 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/robfig/cron"
 	"go.uber.org/zap"
 )
@@ -28,20 +27,10 @@ type backup struct {
 	PreCommand         string `                   envconfig:"PRE_COMMAND"`         // command to execute before restic is executed
 	PostCommand        string `                   envconfig:"POST_COMMAND"`        // command to execute after restic was executed (successfully)
 
-	backupDuration             prometheus.Histogram
-	backupStatus               prometheus.Gauge
-	backupsFailed              prometheus.Counter
-	backupsSuccessful          prometheus.Counter
-	backupsSuccessfulTimestamp prometheus.Gauge
-	backupsTotal               prometheus.Counter
-	bytesAdded                 prometheus.Histogram
-	bytesProcessed             prometheus.Histogram
-	filesChanged               prometheus.Histogram
-	filesNew                   prometheus.Histogram
-	filesProcessed             prometheus.Histogram
-	filesUnmodified            prometheus.Histogram
-
+	// lock is used to prevent concurrent backups from happening
 	lock sync.Mutex
+	// metrics defines all the different Prometheus metrics in use
+	metrics
 }
 
 var (
