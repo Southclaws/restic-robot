@@ -28,17 +28,18 @@ type backup struct {
 	PreCommand         string `                   envconfig:"PRE_COMMAND"`         // command to execute before restic is executed
 	PostCommand        string `                   envconfig:"POST_COMMAND"`        // command to execute after restic was executed (successfully)
 
-	backupsTotal               prometheus.Counter
-	backupsSuccessful          prometheus.Counter
-	backupsFailed              prometheus.Counter
 	backupDuration             prometheus.Histogram
+	backupStatus               prometheus.Gauge
+	backupsFailed              prometheus.Counter
+	backupsSuccessful          prometheus.Counter
 	backupsSuccessfulTimestamp prometheus.Gauge
-	filesNew                   prometheus.Histogram
-	filesChanged               prometheus.Histogram
-	filesUnmodified            prometheus.Histogram
-	filesProcessed             prometheus.Histogram
+	backupsTotal               prometheus.Counter
 	bytesAdded                 prometheus.Histogram
 	bytesProcessed             prometheus.Histogram
+	filesChanged               prometheus.Histogram
+	filesNew                   prometheus.Histogram
+	filesProcessed             prometheus.Histogram
+	filesUnmodified            prometheus.Histogram
 
 	lock sync.Mutex
 }
@@ -96,18 +97,35 @@ func (b *backup) Run() {
 
 	logger.Info("backup started")
 	startTime := time.Now()
+	// hold the backup success
+	success := false
+	b.backupStatus.Set(backupStatusRunning)
+	// process metrics after backup completed
+	defer func() {
+		if success {
+			// last backup succeeded
+			b.backupsSuccessful.Inc()
+			b.backupStatus.Set(backupStatusIdle)
+			b.backupsSuccessfulTimestamp.SetToCurrentTime()
+		} else {
+			// last backup failed
+			b.backupsFailed.Inc()
+			b.backupStatus.Set(backupStatusFailed)
+		}
+		b.backupsTotal.Inc()
+	}()
 
+	// execute pre-command (if configured)
 	if len(b.PreCommand) > 0 {
 		if stdout, err := b.executePreCommand(); err != nil {
 			logger.Error("failed to execute pre-command: " + err.Error())
-			b.backupsFailed.Inc()
-			b.backupsTotal.Inc()
 			return
 		} else {
 			logger.Info("output of pre-command: " + *stdout)
 		}
 	}
 
+	// execute restic backup
 	cmd := exec.Command("restic", append([]string{"backup"}, parseArg(b.Args)...)...)
 	errbuf := bytes.NewBuffer(nil)
 	outbuf := bytes.NewBuffer(nil)
@@ -118,6 +136,7 @@ func (b *backup) Run() {
 		logger.Error("failed to run backup",
 			zap.Error(err),
 			zap.String("output", errbuf.String()))
+		b.backupStatus.Set(backupStatusFailed)
 		b.backupsFailed.Inc()
 		b.backupsTotal.Inc()
 		return
@@ -126,8 +145,6 @@ func (b *backup) Run() {
 	if len(b.PostCommand) > 0 {
 		if stdout, err := b.executePostCommand(); err != nil {
 			logger.Error("failed to execute post-command: " + err.Error())
-			b.backupsFailed.Inc()
-			b.backupsTotal.Inc()
 			return
 		} else {
 			logger.Info("output of post-command: " + *stdout)
@@ -152,6 +169,10 @@ func (b *backup) Run() {
 		zap.Int("bytesProcessed", statistics.bytesProcessed),
 	)
 
+	// indicate backup success
+	success = true
+
+	// process result and update metrics
 	b.backupDuration.Observe(float64(d.Nanoseconds() * 1000))
 	b.filesNew.Observe(float64(statistics.filesNew))
 	b.filesChanged.Observe(float64(statistics.filesChanged))
@@ -159,10 +180,6 @@ func (b *backup) Run() {
 	b.filesProcessed.Observe(float64(statistics.filesProcessed))
 	b.bytesAdded.Observe(float64(statistics.bytesAdded))
 	b.bytesProcessed.Observe(float64(statistics.bytesProcessed))
-
-	b.backupsSuccessfulTimestamp.SetToCurrentTime()
-	b.backupsSuccessful.Inc()
-	b.backupsTotal.Inc()
 }
 
 func extractStats(s string) (result stats, err error) {

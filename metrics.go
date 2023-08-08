@@ -8,6 +8,15 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// backupStatusIdle indicates there is no backup in progress
+	backupStatusIdle = 0
+	// backupStatusFailed indicates no running backup and the last one failed
+	backupStatusFailed = -1
+	// backupStatusRunning indicates the backup is currently in progress
+	backupStatusRunning = 1
+)
+
 func (b *backup) startMetricsServer() {
 
 	b.backupsTotal = prometheus.NewCounter(prometheus.CounterOpts{
@@ -65,8 +74,14 @@ func (b *backup) startMetricsServer() {
 		Name:      "backup_successful_timestamp",
 		Help:      "Timestamp of last successful backup",
 	})
+	b.backupStatus = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "backup",
+		Name:      "backup_status",
+		Help:      "Backup status (1 = backing up, 0 = idle, -1 = idle after failed backup)",
+	})
 	prometheus.MustRegister(
 		b.backupDuration,
+		b.backupStatus,
 		b.backupsFailed,
 		b.backupsSuccessful,
 		b.backupsSuccessfulTimestamp,
