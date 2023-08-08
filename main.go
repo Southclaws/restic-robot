@@ -28,16 +28,17 @@ type backup struct {
 	PreCommand         string `                   envconfig:"PRE_COMMAND"`         // command to execute before restic is executed
 	PostCommand        string `                   envconfig:"POST_COMMAND"`        // command to execute after restic was executed (successfully)
 
-	backupsTotal      prometheus.Counter
-	backupsSuccessful prometheus.Counter
-	backupsFailed     prometheus.Counter
-	backupDuration    prometheus.Histogram
-	filesNew          prometheus.Histogram
-	filesChanged      prometheus.Histogram
-	filesUnmodified   prometheus.Histogram
-	filesProcessed    prometheus.Histogram
-	bytesAdded        prometheus.Histogram
-	bytesProcessed    prometheus.Histogram
+	backupsTotal               prometheus.Counter
+	backupsSuccessful          prometheus.Counter
+	backupsFailed              prometheus.Counter
+	backupDuration             prometheus.Histogram
+	backupsSuccessfulTimestamp prometheus.Gauge
+	filesNew                   prometheus.Histogram
+	filesChanged               prometheus.Histogram
+	filesUnmodified            prometheus.Histogram
+	filesProcessed             prometheus.Histogram
+	bytesAdded                 prometheus.Histogram
+	bytesProcessed             prometheus.Histogram
 
 	lock sync.Mutex
 }
@@ -159,6 +160,7 @@ func (b *backup) Run() {
 	b.bytesAdded.Observe(float64(statistics.bytesAdded))
 	b.bytesProcessed.Observe(float64(statistics.bytesProcessed))
 
+	b.backupsSuccessfulTimestamp.SetToCurrentTime()
 	b.backupsSuccessful.Inc()
 	b.backupsTotal.Inc()
 }

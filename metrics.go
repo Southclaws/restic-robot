@@ -60,17 +60,23 @@ func (b *backup) startMetricsServer() {
 		Name:      "backup_processed_bytes",
 		Help:      "Total number of bytes scanned by the backup for changes",
 	})
+	b.backupsSuccessfulTimestamp = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "backup",
+		Name:      "backup_successful_timestamp",
+		Help:      "Timestamp of last successful backup",
+	})
 	prometheus.MustRegister(
-		b.backupsTotal,
-		b.backupsSuccessful,
-		b.backupsFailed,
 		b.backupDuration,
-		b.filesNew,
-		b.filesChanged,
-		b.filesUnmodified,
-		b.filesProcessed,
+		b.backupsFailed,
+		b.backupsSuccessful,
+		b.backupsSuccessfulTimestamp,
+		b.backupsTotal,
 		b.bytesAdded,
 		b.bytesProcessed,
+		b.filesChanged,
+		b.filesNew,
+		b.filesProcessed,
+		b.filesUnmodified,
 	)
 
 	http.Handle(b.PrometheusEndpoint, promhttp.Handler())
