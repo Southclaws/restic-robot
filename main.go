@@ -71,8 +71,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to ensure repository", zap.Error(err))
 	}
-
-	go b.startMetricsServer()
+	b.initializeMetrics()
+	if b.PrometheusAddress != "" {
+		go b.startMetricsServer()
+	} else {
+		logger.Info("metrics disabled")
+	}
 
 	cr := cron.New()
 	err = cr.AddJob(b.Schedule, &b)

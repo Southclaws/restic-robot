@@ -17,8 +17,8 @@ const (
 	backupStatusRunning = 1
 )
 
-func (b *backup) startMetricsServer() {
-
+// initializeMetrics configures and registers the Prometheus metrics
+func (b *backup) initializeMetrics() {
 	b.backupsTotal = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "backup",
 		Name:      "backups_all_total",
@@ -93,8 +93,11 @@ func (b *backup) startMetricsServer() {
 		b.filesProcessed,
 		b.filesUnmodified,
 	)
+}
 
+func (b *backup) startMetricsServer() {
 	http.Handle(b.PrometheusEndpoint, promhttp.Handler())
+	logger.Info("metrics server listening at " + b.PrometheusAddress)
 	err := http.ListenAndServe(b.PrometheusAddress, nil)
 	logger.Fatal("metrics server closed", zap.Error(err))
 }
