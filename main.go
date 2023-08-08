@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -37,6 +38,8 @@ type backup struct {
 	filesProcessed    prometheus.Histogram
 	bytesAdded        prometheus.Histogram
 	bytesProcessed    prometheus.Histogram
+
+	lock sync.Mutex
 }
 
 var (
@@ -82,6 +85,14 @@ func main() {
 
 // Run performs the backup
 func (b *backup) Run() {
+	// prevent concurrent backups from happening
+	if !b.lock.TryLock() {
+		logger.Warn("backup is already running")
+		return
+	}
+	// ensure lock is released after backup
+	defer b.lock.Unlock()
+
 	logger.Info("backup started")
 	startTime := time.Now()
 
