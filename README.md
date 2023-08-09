@@ -25,6 +25,7 @@ Environment variables:
 - `PROMETHEUS_ADDRESS`: metrics host:port
 - `PRE_COMMAND`: A shell command to run before a backup starts
 - `POST_COMMAND`: A shell command to run if the backup completes successfully
+- `TRIGGER_ENDPOINT`: manual trigger endpoint
 
 Prometheus metrics:
 
@@ -40,6 +41,15 @@ Prometheus metrics:
 - `backup_processed_bytes`: Total number of bytes scanned by the backup for changes
 
 It's that simple!
+
+### Manual backups
+
+Sometimes backups are required out-of-band - e.g. before some manual changes to a system
+are made. Instead of running `restic` manually, or to edit the cron schedule for a single
+run, you can trigger a manual backup by sending an HTTP POST request to the configured
+`TRIGGER_ENDPOINT` (defaulting to `http://localhost:8080/trigger`). It reuses the listen
+address configured with `PROMETHEUS_ADDRESS`. If the endpoint is set to an empty string,
+manual backups are disabled.
 
 ## Docker Compose
 
