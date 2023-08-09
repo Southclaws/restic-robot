@@ -166,7 +166,7 @@ func (b *backup) Run() {
 	success = true
 
 	// process result and update metrics
-	b.backupDuration.Observe(float64(d.Nanoseconds() * 1000))
+	b.backupDuration.Observe(float64(d.Milliseconds()))
 	b.filesNew.Observe(float64(statistics.filesNew))
 	b.filesChanged.Observe(float64(statistics.filesChanged))
 	b.filesUnmodified.Observe(float64(statistics.filesUnmodified))
