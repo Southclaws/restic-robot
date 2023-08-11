@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -17,6 +18,25 @@ const (
 	backupStatusFailed = -1
 	// backupStatusRunning indicates the backup is currently in progress
 	backupStatusRunning = 1
+)
+
+var (
+	// bucketTime is the bucket configuration for time-based histograms (in ms)
+	bucketTime = []float64{
+		float64((5 * time.Minute).Milliseconds()),
+		float64((15 * time.Minute).Milliseconds()),
+		float64((30 * time.Minute).Milliseconds()),
+		float64((1 * time.Hour).Milliseconds()),
+		float64((2 * time.Hour).Milliseconds()),
+		float64((4 * time.Hour).Milliseconds()),
+		float64((8 * time.Hour).Milliseconds()),
+		float64((12 * time.Hour).Milliseconds()),
+	}
+	// bucketFileCount is the bucket configuration for file count
+	bucketFileCount = []float64{5, 50, 500, 5000, 50000, 500000, 5000000}
+	// bucketFileSize is the bucket configuration for file size
+	// ranging from 1 MB to 10 TB
+	bucketFileSize = []float64{1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13}
 )
 
 // metrics is used to hold all the Prometheus metrics used
@@ -57,36 +77,43 @@ func (b *backup) initializeMetrics() {
 		Namespace: "backup",
 		Name:      "backup_duration_milliseconds",
 		Help:      "The duration of backups in milliseconds.",
+		Buckets:   append([]float64{}, bucketTime...),
 	})
 	b.filesNew = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "backup",
 		Name:      "backup_files_new",
 		Help:      "Amount of new files.",
+		Buckets:   append([]float64{}, bucketFileCount...),
 	})
 	b.filesChanged = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "backup",
 		Name:      "backup_files_changed",
 		Help:      "Amount of files with changes.",
+		Buckets:   append([]float64{}, bucketFileCount...),
 	})
 	b.filesUnmodified = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "backup",
 		Name:      "backup_files_unmodified",
 		Help:      "Amount of files unmodified since last backup.",
+		Buckets:   append([]float64{}, bucketFileCount...),
 	})
 	b.filesProcessed = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "backup",
 		Name:      "backup_files_processed",
 		Help:      "Total number of files scanned by the backup for changes.",
+		Buckets:   append([]float64{}, bucketFileCount...),
 	})
 	b.bytesAdded = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "backup",
 		Name:      "backup_added_bytes",
 		Help:      "Total number of bytes added to the repository.",
+		Buckets:   append([]float64{}, bucketFileSize...),
 	})
 	b.bytesProcessed = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "backup",
 		Name:      "backup_processed_bytes",
 		Help:      "Total number of bytes scanned by the backup for changes",
+		Buckets:   append([]float64{}, bucketFileSize...),
 	})
 	b.backupsSuccessfulTimestamp = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "backup",
