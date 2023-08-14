@@ -22,6 +22,7 @@ type backup struct {
 	Password           string `required:"true"    envconfig:"RESTIC_PASSWORD"`     // repository password
 	Args               string `                   envconfig:"RESTIC_ARGS"`         // additional args for backup command
 	RunOnBoot          bool   `                   envconfig:"RUN_ON_BOOT"`         // run a backup on startup
+	TriggerEndpoint    string `default:"/trigger" envconfig:"TRIGGER_ENDPOINT"`    // trigger endpoint
 	PrometheusEndpoint string `default:"/metrics" envconfig:"PROMETHEUS_ENDPOINT"` // metrics endpoint
 	PrometheusAddress  string `default:":8080"    envconfig:"PROMETHEUS_ADDRESS"`  // metrics host:port
 	PreCommand         string `                   envconfig:"PRE_COMMAND"`         // command to execute before restic is executed
@@ -62,9 +63,10 @@ func main() {
 	}
 	b.initializeMetrics()
 	if b.PrometheusAddress != "" {
+		b.setupTrigger()
 		go b.startMetricsServer()
 	} else {
-		logger.Info("metrics disabled")
+		logger.Info("metrics and manual trigger disabled")
 	}
 
 	cr := cron.New()
