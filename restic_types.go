@@ -57,3 +57,10 @@ type BackupSummaryMessage struct {
 	TotalDuration       float64 `json:"total_duration"`
 	SnapshotID          string  `json:"snapshot_id"`
 }
+
+// InitMessage represents the summary of `restic init`.
+type InitMessage struct {
+	MessageType string `json:"message_type"`
+	ID          string `json:"id"`
+	Repository  string `json:"repository"`
+}

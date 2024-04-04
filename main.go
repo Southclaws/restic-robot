@@ -222,19 +222,29 @@ func extractJsonStats(outbuf *bytes.Buffer) (result stats, err error) {
 }
 
 // Ensure will create a repository if it does not already exist
-func (b *backup) Ensure() (err error) {
+func (b *backup) Ensure() error {
 	logger.Info("ensuring backup repository exists")
-	cmd := exec.Command("restic", "init")
-	out := bytes.NewBuffer(nil)
-	cmd.Stderr = out
-	err = cmd.Run()
-	if err != nil {
-		if matchExists.MatchString(strings.Trim(out.String(), " \n\r")) {
+	cmd := exec.Command("restic", "init", "--json")
+	outbuf := &bytes.Buffer{}
+	cmd.Stderr = outbuf
+	cmd.Stdout = outbuf
+
+	if err := cmd.Run(); err != nil {
+		outputStr := strings.Trim(outbuf.String(), " \n\r")
+		if matchExists.MatchString(outputStr) {
 			logger.Info("repository exists")
 			return nil
 		}
-		return errors.Wrap(err, out.String())
+		logger.Error("failed to initialize repository", zap.Error(err), zap.String("output", outputStr))
+		return errors.Wrap(err, outputStr)
 	}
-	logger.Info("successfully created repository")
-	return
+
+	var initOutput InitMessage
+	if err := json.Unmarshal(outbuf.Bytes(), &initOutput); err != nil {
+		logger.Error("failed to parse JSON output from restic init", zap.Error(err))
+		return errors.Wrap(err, "parsing JSON output")
+	}
+
+	logger.Info("successfully created repository", zap.String("id", initOutput.ID), zap.String("repository", initOutput.Repository))
+	return nil
 }
