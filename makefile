@@ -6,5 +6,5 @@ fast:
 
 build:
 	docker build \
-		-t southclaws/restic-robot \
+		-t ghcr.io/southclaws/restic-robot \
 		.

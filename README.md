@@ -12,7 +12,7 @@ This is a small and simple wrapper application for [Restic](https://github.com/r
 
 ## Usage
 
-Just `go build` and run it, or, if you're into Docker, `southclaws/restic-robot`.
+Just `go build` and run it, or, if you're into Docker, `ghcr.io/southclaws/restic-robot`.
 
 Environment variables:
 
