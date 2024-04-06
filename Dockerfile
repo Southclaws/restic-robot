@@ -1,3 +1,5 @@
+ARG RESTIC_VERSION
+
 FROM golang:alpine AS builder
 
 WORKDIR /restic-robot
@@ -9,7 +11,7 @@ RUN apk add musl-dev
 RUN go mod tidy
 RUN go build
 
-FROM restic/restic AS runner
+FROM restic/restic:${RESTIC_VERSION:?} AS runner
 
 COPY --from=builder /restic-robot/restic-robot /usr/bin/restic-robot
 

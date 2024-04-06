@@ -32,7 +32,7 @@ archives:
 
 dockers:
   - image_templates:
-      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-amd64"
+      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-amd64-restic-{{.Env.RESTIC_VERSION}}"
     use: buildx
     dockerfile: goreleaser.dockerfile
     build_flag_templates:
@@ -40,9 +40,10 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=RESTIC_VERSION={{.Env.RESTIC_VERSION}}"
       - "--platform=linux/amd64"
   - image_templates:
-      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-arm64v8"
+      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-arm64v8-restic-{{.Env.RESTIC_VERSION}}"
     use: buildx
     goarch: arm64
     dockerfile: goreleaser.dockerfile
@@ -51,17 +52,18 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=RESTIC_VERSION={{.Env.RESTIC_VERSION}}"
       - "--platform=linux/arm64/v8"
 
 docker_manifests:
-  - name_template: "ghcr.io/southclaws/restic-robot:{{ .Version }}"
+  - name_template: "ghcr.io/southclaws/restic-robot:{{ .Version }}-restic-{{.Env.RESTIC_VERSION}}"
     image_templates:
-      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-amd64"
-      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-arm64v8"
+      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-amd64-restic-{{.Env.RESTIC_VERSION}}"
+      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-arm64v8-restic-{{.Env.RESTIC_VERSION}}"
   - name_template: "ghcr.io/southclaws/restic-robot:latest"
     image_templates:
-      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-amd64"
-      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-arm64v8"
+      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-amd64-restic-{{.Env.RESTIC_VERSION}}"
+      - "ghcr.io/southclaws/restic-robot:{{ .Version }}-arm64v8-restic-{{.Env.RESTIC_VERSION}}"
 
 changelog:
   sort: asc

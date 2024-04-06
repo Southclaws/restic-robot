@@ -42,6 +42,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: cardinalby/export-env-action@v2
+        with:
+          envFile: '.env'
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
