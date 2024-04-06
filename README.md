@@ -25,7 +25,7 @@ Environment variables:
 - `PROMETHEUS_ADDRESS`: metrics host:port
 - `PRE_COMMAND`: A shell command to run before a backup starts
 - `POST_COMMAND`: A shell command to run if the backup completes successfully
-- `ERROR_COMMAND`: A shell command to run if the backup errors
+- `ERROR_COMMAND`: A shell command to run if the backup errors. For example, to send a notification to a Slack channel on backup failure, you could set it to a curl command that posts to your Slack webhook.
 - `TRIGGER_ENDPOINT`: manual trigger endpoint
 
 Prometheus metrics:

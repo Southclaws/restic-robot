@@ -113,6 +113,7 @@ func (b *backup) Run() {
 
 	// execute pre-command (if configured)
 	if len(b.PreCommand) > 0 {
+		logger.Debug("executing pre-command", zap.String("command", b.PreCommand))
 		if stdout, err := b.executePreCommand(); err != nil {
 			logger.Error("failed to execute pre-command: " + err.Error())
 			return
@@ -137,7 +138,9 @@ func (b *backup) Run() {
 		b.backupsFailed.Inc()
 		b.backupsTotal.Inc()
 
+		// execute error-command (if configured)
 		if len(b.ErrorCommand) > 0 {
+			logger.Debug("executing error-command", zap.String("command", b.ErrorCommand))
 			if stdout, err := b.executeErrorCommand(); err != nil {
 				logger.Error("failed to execute error-command: " + err.Error())
 			} else if stdout != nil {
@@ -148,7 +151,9 @@ func (b *backup) Run() {
 		return
 	}
 
+	// execute post-command (if configured)
 	if len(b.PostCommand) > 0 {
+		logger.Debug("executing post-command", zap.String("command", b.PostCommand))
 		if stdout, err := b.executePostCommand(); err != nil {
 			logger.Error("failed to execute post-command: " + err.Error())
 			return
