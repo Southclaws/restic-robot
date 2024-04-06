@@ -1,4 +1,4 @@
-ARG RESTIC_VERSION
+ARG RESTIC_VERSION=latest
 
 FROM golang:alpine AS builder
 
