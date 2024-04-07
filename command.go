@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/pkg/errors"
 	"os/exec"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func executeCommand(command string) (*string, error) {
@@ -24,4 +25,8 @@ func (b *backup) executePreCommand() (*string, error) {
 
 func (b *backup) executePostCommand() (*string, error) {
 	return executeCommand(b.PostCommand)
+}
+
+func (b *backup) executeErrorCommand() (*string, error) {
+	return executeCommand(b.ErrorCommand)
 }

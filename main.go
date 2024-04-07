@@ -27,6 +27,7 @@ type backup struct {
 	PrometheusAddress  string `default:":8080"    envconfig:"PROMETHEUS_ADDRESS"`  // metrics host:port
 	PreCommand         string `                   envconfig:"PRE_COMMAND"`         // command to execute before restic is executed
 	PostCommand        string `                   envconfig:"POST_COMMAND"`        // command to execute after restic was executed (successfully)
+	ErrorCommand       string `                   envconfig:"ERROR_COMMAND"`       // command to execute after a failed restic execution
 
 	// lock is used to prevent concurrent backups from happening
 	lock sync.Mutex
@@ -112,6 +113,7 @@ func (b *backup) Run() {
 
 	// execute pre-command (if configured)
 	if len(b.PreCommand) > 0 {
+		logger.Debug("executing pre-command", zap.String("command", b.PreCommand))
 		if stdout, err := b.executePreCommand(); err != nil {
 			logger.Error("failed to execute pre-command: " + err.Error())
 			return
@@ -131,13 +133,27 @@ func (b *backup) Run() {
 		logger.Error("failed to run backup",
 			zap.Error(err),
 			zap.String("output", errbuf.String()))
+
 		b.backupStatus.Set(backupStatusFailed)
 		b.backupsFailed.Inc()
 		b.backupsTotal.Inc()
+
+		// execute error-command (if configured)
+		if len(b.ErrorCommand) > 0 {
+			logger.Debug("executing error-command", zap.String("command", b.ErrorCommand))
+			if stdout, err := b.executeErrorCommand(); err != nil {
+				logger.Error("failed to execute error-command: " + err.Error())
+			} else if stdout != nil {
+				logger.Info("output of error-command: " + *stdout)
+			}
+		}
+
 		return
 	}
 
+	// execute post-command (if configured)
 	if len(b.PostCommand) > 0 {
+		logger.Debug("executing post-command", zap.String("command", b.PostCommand))
 		if stdout, err := b.executePostCommand(); err != nil {
 			logger.Error("failed to execute post-command: " + err.Error())
 			return
