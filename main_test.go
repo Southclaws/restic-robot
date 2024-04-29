@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -8,38 +9,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_extractStats(t *testing.T) {
+func Test_extractJsonStats(t *testing.T) {
 	tests := []struct {
 		input      string
 		wantResult stats
 	}{
-		{`open repository
-lock repository
-load index files
-using parent snapshot 38401629
-start scan on [./test/]
-start backup on [./test/]
-scan finished in 0.797s: 58 files, 97.870 MiB
-
-Files:          56 new,     2 changed,     2 unmodified
-Dirs:            0 new,     0 changed,     0 unmodified
-Data Blobs:     35 new
-Tree Blobs:      1 new
-Added to the repo: 169.009 KiB
-
-processed 58 files, 97.870 MiB in 0:00
-snapshot c7693989 saved`, stats{
+		{`{"message_type":"summary","files_new":56,"files_changed":2,"files_unmodified":2,"dirs_new":0,"dirs_changed":0,"dirs_unmodified":0,"data_blobs":35,"tree_blobs":1,"data_added":169009,"total_files_processed":58,"total_bytes_processed":102624133120}
+`, stats{
 			filesNew:        56,
 			filesChanged:    2,
 			filesUnmodified: 2,
 			filesProcessed:  58,
-			bytesAdded:      173065216,
+			bytesAdded:      169009,
 			bytesProcessed:  102624133120,
 		}},
 	}
 	for ii, tt := range tests {
 		t.Run(fmt.Sprint(ii), func(t *testing.T) {
-			gotResult, err := extractStats(tt.input)
+			inputBuffer := bytes.NewBufferString(tt.input)
+			gotResult, err := extractJsonStats(inputBuffer)
 			if err != nil {
 				t.Error(err)
 			}

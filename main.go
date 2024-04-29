@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
+	"io"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,10 +38,7 @@ type backup struct {
 }
 
 var (
-	matchExists     = regexp.MustCompile(`.*already (exists|initialized).*`)
-	matchFileStats  = regexp.MustCompile(`Files:\s*([0-9.]*) new,\s*([0-9.]*) changed,\s*([0-9.]*) unmodified`)
-	matchAddedBytes = regexp.MustCompile(`Added to the (repo|repository): ([0-9.]+) (\w+)`)
-	matchProcessed  = regexp.MustCompile(`processed ([0-9.]*) files, ([0-9.]+) (\w+)`)
+	matchExists = regexp.MustCompile(`.*already (exists|initialized).*`)
 )
 
 type stats struct {
@@ -47,8 +46,8 @@ type stats struct {
 	filesChanged    int
 	filesUnmodified int
 	filesProcessed  int
-	bytesAdded      int
-	bytesProcessed  int
+	bytesAdded      int64
+	bytesProcessed  int64
 }
 
 func main() {
@@ -123,7 +122,7 @@ func (b *backup) Run() {
 	}
 
 	// execute restic backup
-	cmd := exec.Command("restic", append([]string{"backup"}, parseArg(b.Args)...)...)
+	cmd := exec.Command("restic", append([]string{"backup", "--json"}, parseArg(b.Args)...)...)
 	errbuf := bytes.NewBuffer(nil)
 	outbuf := bytes.NewBuffer(nil)
 	cmd.Stderr = errbuf
@@ -164,7 +163,7 @@ func (b *backup) Run() {
 
 	d := time.Since(startTime)
 
-	statistics, err := extractStats(outbuf.String())
+	statistics, err := extractJsonStats(outbuf)
 	if err != nil {
 		logger.Warn("failed to extract statistics from command output",
 			zap.Error(err))
@@ -176,8 +175,8 @@ func (b *backup) Run() {
 		zap.Int("filesChanged", statistics.filesChanged),
 		zap.Int("filesUnmodified", statistics.filesUnmodified),
 		zap.Int("filesProcessed", statistics.filesProcessed),
-		zap.Int("bytesAdded", statistics.bytesAdded),
-		zap.Int("bytesProcessed", statistics.bytesProcessed),
+		zap.Int64("bytesAdded", statistics.bytesAdded),
+		zap.Int64("bytesProcessed", statistics.bytesProcessed),
 	)
 
 	// indicate backup success
@@ -193,67 +192,75 @@ func (b *backup) Run() {
 	b.bytesProcessed.Observe(float64(statistics.bytesProcessed))
 }
 
-func extractStats(s string) (result stats, err error) {
-	fileStats := matchFileStats.FindAllStringSubmatch(s, -1)
-	if len(fileStats[0]) != 4 {
-		err = errors.Errorf("matchFileStats expected 4, got %d", len(fileStats[0]))
-		return
-	}
-	result.filesNew, _ = strconv.Atoi(fileStats[0][1])        //nolint:errcheck
-	result.filesChanged, _ = strconv.Atoi(fileStats[0][2])    //nolint:errcheck
-	result.filesUnmodified, _ = strconv.Atoi(fileStats[0][3]) //nolint:errcheck
+func extractJsonStats(outbuf *bytes.Buffer) (result stats, err error) {
+	reader := bufio.NewReader(outbuf)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.Error("error reading output buffer", zap.Error(err))
+			return result, err
+		}
 
-	addedBytes := matchAddedBytes.FindAllStringSubmatch(s, -1)
-	if len(addedBytes[0]) != 3 && len(addedBytes[0]) != 4 {
-		err = errors.Errorf("matchAddedBytes expected 3, got %d", len(addedBytes[0]))
-		return
-	}
-	amount, _ := strconv.ParseFloat(addedBytes[0][1], 64) //nolint:errcheck
-	// restic doesn't use a comma to denote thousands
-	amount *= 1000
-	result.bytesAdded = convert(int(amount), addedBytes[0][2])
+		var msg BackupMessage
+		if err := json.Unmarshal(line, &msg); err != nil {
+			logger.Error("error unmarshalling JSON", zap.ByteString("line", line), zap.Error(err))
+			return result, err
+		}
 
-	filesProcessed := matchProcessed.FindAllStringSubmatch(s, -1)
-	if len(filesProcessed[0]) != 4 {
-		err = errors.Errorf("filesProcessed expected 4, got %d", len(filesProcessed[0]))
-		return
+		switch msg.MessageType {
+		case "summary":
+			var summary BackupSummaryMessage
+			if err := json.Unmarshal(line, &summary); err != nil {
+				logger.Error("error unmarshalling summary message", zap.ByteString("line", line), zap.Error(err))
+				return result, err
+			}
+			result.filesNew = summary.FilesNew
+			result.filesChanged = summary.FilesChanged
+			result.filesUnmodified = summary.FilesUnmodified
+			result.filesProcessed = summary.TotalFilesProcessed
+			result.bytesAdded = summary.DataAdded
+			result.bytesProcessed = summary.TotalBytesProcessed
+		case "status":
+			logger.Debug("received status update", zap.ByteString("line", line))
+		case "error":
+			var errorMsg BackupErrorMessage
+			if err := json.Unmarshal(line, &errorMsg); err != nil {
+				logger.Error("error unmarshalling error message", zap.ByteString("line", line), zap.Error(err))
+			} else {
+				logger.Error("backup error", zap.String("error", errorMsg.Error), zap.String("during", errorMsg.During), zap.String("item", errorMsg.Item))
+			}
+		}
 	}
-	result.filesProcessed, _ = strconv.Atoi(filesProcessed[0][1]) //nolint:errcheck
-	amount, _ = strconv.ParseFloat(filesProcessed[0][2], 64)      //nolint:errcheck
-	amount *= 1000
-	result.bytesProcessed = convert(int(amount), filesProcessed[0][3])
-
-	return
-}
-
-func convert(b int, unit string) (result int) {
-	switch unit {
-	case "TiB":
-		result = b * (1 << 40)
-	case "GiB":
-		result = b * (1 << 30)
-	case "MiB":
-		result = b * (1 << 20)
-	case "KiB":
-		result = b * (1 << 10)
-	}
-	return
+	return result, nil
 }
 
 // Ensure will create a repository if it does not already exist
-func (b *backup) Ensure() (err error) {
+func (b *backup) Ensure() error {
 	logger.Info("ensuring backup repository exists")
-	cmd := exec.Command("restic", "init")
-	out := bytes.NewBuffer(nil)
-	cmd.Stderr = out
-	err = cmd.Run()
-	if err != nil {
-		if matchExists.MatchString(strings.Trim(out.String(), " \n\r")) {
+	cmd := exec.Command("restic", "init", "--json")
+	outbuf := &bytes.Buffer{}
+	cmd.Stderr = outbuf
+	cmd.Stdout = outbuf
+
+	if err := cmd.Run(); err != nil {
+		outputStr := strings.Trim(outbuf.String(), " \n\r")
+		if matchExists.MatchString(outputStr) {
 			logger.Info("repository exists")
 			return nil
 		}
-		return errors.Wrap(err, out.String())
+		logger.Error("failed to initialize repository", zap.Error(err), zap.String("output", outputStr))
+		return errors.Wrap(err, outputStr)
 	}
-	logger.Info("successfully created repository")
-	return
+
+	var initOutput InitMessage
+	if err := json.Unmarshal(outbuf.Bytes(), &initOutput); err != nil {
+		logger.Error("failed to parse JSON output from restic init", zap.Error(err))
+		return errors.Wrap(err, "parsing JSON output")
+	}
+
+	logger.Info("successfully created repository", zap.String("id", initOutput.ID), zap.String("repository", initOutput.Repository))
+	return nil
 }
